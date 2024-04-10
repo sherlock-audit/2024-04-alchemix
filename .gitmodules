@@ -1,0 +1,12 @@
+[submodule "v2-foundry/lib/forge-std"]
+	path = v2-foundry/lib/forge-std
+	url = https://github.com/brockelmore/forge-std
+[submodule "v2-foundry/lib/openzeppelin-contracts"]
+	path = v2-foundry/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "v2-foundry/lib/openzeppelin-contracts-upgradeable"]
+	path = v2-foundry/lib/openzeppelin-contracts-upgradeable
+	url = https://github.com/Openzeppelin/openzeppelin-contracts-upgradeable
+[submodule "v2-foundry/lib/solmate"]
+	path = v2-foundry/lib/solmate
+	url = https://github.com/Rari-Capital/solmate
