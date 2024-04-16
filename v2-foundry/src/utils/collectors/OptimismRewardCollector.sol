@@ -9,20 +9,24 @@ import {Unauthorized, IllegalState, IllegalArgument} from "../../base/ErrorMessa
 
 import "../../interfaces/external/chainlink/IChainlinkOracle.sol";
 
+
 import "../../interfaces/IRewardCollector.sol";
 import "../../libraries/Sets.sol";
 import "../../libraries/TokenUtils.sol";
+import "../../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+
 
 struct InitializationParams {
     address alchemist;
     address debtToken;
+    address rewardRouter;
     address rewardToken;
     address swapRouter;
 }
 
 /// @title  RewardCollectorOptimism
 /// @author Alchemix Finance
-contract OptimismRewardCollector is IRewardCollector {
+contract OptimismRewardCollector is IRewardCollector, Ownable {
     address constant aaveIncentives = 0x929EC64c34a17401F460460D4B9390518E5B473e;
     address constant alUsdOptimism = 0xCB8FA9a76b8e203D8C3797bF438d8FB81Ea3326A;
     address constant alEthOptimism = 0x3E29D3A9316dAB217754d13b28646B76607c5f04;
@@ -31,9 +35,10 @@ contract OptimismRewardCollector is IRewardCollector {
 
     uint256 constant FIXED_POINT_SCALAR = 1e18;
     uint256 constant BPS = 10000;
-    string public override version = "1.0.0";
+    string public override version = "1.1.0";
     address public alchemist;
     address public debtToken;
+    address public rewardRouter;
     address public override rewardToken;
     address public override swapRouter;
 
@@ -41,10 +46,17 @@ contract OptimismRewardCollector is IRewardCollector {
         alchemist       = params.alchemist;
         debtToken       = params.debtToken;
         rewardToken     = params.rewardToken;
+        rewardRouter    = params.rewardRouter;
         swapRouter      = params.swapRouter;
     }
 
+    function setRewardRouter(address _rewardRouter) external onlyOwner {
+        rewardRouter = _rewardRouter;
+    }
+
     function claimAndDonateRewards(address token, uint256 minimumAmountOut) external returns (uint256) {
+        require(msg.sender == rewardRouter, "Must be Reward Router"); 
+
         // Amount of reward token claimed plus any sent to this contract from grants.
         uint256 amountRewardToken = IERC20(rewardToken).balanceOf(address(this));
 
@@ -52,15 +64,16 @@ contract OptimismRewardCollector is IRewardCollector {
 
         if (debtToken == 0xCB8FA9a76b8e203D8C3797bF438d8FB81Ea3326A) {
             // Velodrome Swap Routes: OP -> USDC -> alUSD
-            IVelodromeSwapRouter.route[] memory routes = new IVelodromeSwapRouter.route[](2);
-            routes[0] = IVelodromeSwapRouter.route(0x4200000000000000000000000000000000000042, 0x7F5c764cBc14f9669B88837ca1490cCa17c31607, false);
-            routes[1] = IVelodromeSwapRouter.route(0x7F5c764cBc14f9669B88837ca1490cCa17c31607, 0xCB8FA9a76b8e203D8C3797bF438d8FB81Ea3326A, true);
+            IVelodromeSwapRouter.Route[] memory routes = new IVelodromeSwapRouter.Route[](2);
+            routes[0] = IVelodromeSwapRouter.Route(0x4200000000000000000000000000000000000042, 0x7F5c764cBc14f9669B88837ca1490cCa17c31607, false, 0xF1046053aa5682b4F9a81b5481394DA16BE5FF5a);
+            routes[1] = IVelodromeSwapRouter.Route(0x7F5c764cBc14f9669B88837ca1490cCa17c31607, 0xCB8FA9a76b8e203D8C3797bF438d8FB81Ea3326A, true, 0xF1046053aa5682b4F9a81b5481394DA16BE5FF5a);
             TokenUtils.safeApprove(rewardToken, swapRouter, amountRewardToken);
             IVelodromeSwapRouter(swapRouter).swapExactTokensForTokens(amountRewardToken, minimumAmountOut, routes, address(this), block.timestamp);
         } else if (debtToken == 0x3E29D3A9316dAB217754d13b28646B76607c5f04) {
             // Velodrome Swap Routes: OP -> alETH
-            IVelodromeSwapRouter.route[] memory routes = new IVelodromeSwapRouter.route[](1);
-            routes[0] = IVelodromeSwapRouter.route(0x4200000000000000000000000000000000000042, 0x3E29D3A9316dAB217754d13b28646B76607c5f04, false);
+            IVelodromeSwapRouter.Route[] memory routes = new IVelodromeSwapRouter.Route[](2);
+            routes[0] = IVelodromeSwapRouter.Route(0x4200000000000000000000000000000000000042, 0x4200000000000000000000000000000000000006, false, 0xF1046053aa5682b4F9a81b5481394DA16BE5FF5a);
+            routes[1] = IVelodromeSwapRouter.Route(0x4200000000000000000000000000000000000006, 0x3E29D3A9316dAB217754d13b28646B76607c5f04, true, 0xF1046053aa5682b4F9a81b5481394DA16BE5FF5a);
             TokenUtils.safeApprove(rewardToken, swapRouter, amountRewardToken);
             IVelodromeSwapRouter(swapRouter).swapExactTokensForTokens(amountRewardToken, minimumAmountOut, routes, address(this), block.timestamp);
         } else {
